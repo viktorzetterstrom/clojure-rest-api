@@ -6,9 +6,12 @@
             [clojure.pprint :as pp]
             [clojure.string :as str]
             [clojure.data.json :as json])
-  (:gen-class)) <
+  (:gen-class))
 
-(defn simple-body-page [reg]
+; Helper to get parameter from :params in req
+(defn get-parameter [req pname] (get (:params req) pname))
+
+(defn simple-body-page [req]
   {:status 200
    :headers {"Content-Type" "text/html"}
    :body "Hello, World!"})
@@ -20,9 +23,43 @@
           (pp/pprint req)
           (str "Request Object: " req))})
 
+(defn hello-name [req] ;(3)
+  {:status 200
+   :headers {"Content-Type" "text/html"}
+   :body (->
+          (pp/pprint req)
+          (str "Hello " (get-parameter req :name)))})
+
+; my people-collection mutable collection vector
+(def people-collection (atom []))
+
+; collection helper function that adds new person to people-collection
+(defn add-person [firstname surname]
+  (swap! people-collection
+         conj {:firstname (str/capitalize firstname)
+               :surname (str/capitalize surname)}))
+
+; add dummy data
+(add-person "Functional" "Human")
+(add-person "Micky" "Mouse")
+
+(defn people-handler [req]
+  {:status 200
+   :headers {"Content-Type" "text/json"}
+   :body (str (json/write-str @people-collection))})
+
+(defn add-person-handler [req]
+  {:status 200
+   :headers {"Content-Type" "text/json"}
+   :body (-> (let [p (partial get-parameter req)])
+             (str (json/write-str (add-person (p :firstname) (p :surname)))))})
+
 (defroutes app-routes
   (GET "/" [] simple-body-page)
   (GET "/request" [] request-example)
+  (GET "/hello" [] hello-name)
+  (GET "/people" [] people-handler)
+  (GET "/people" [] add-person-handler)
   (route/not-found "Error, page not found!"))
 
 (defn -main
